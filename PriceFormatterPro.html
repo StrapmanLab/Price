@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Price Formatter Pro</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --primary: #10b981; --primary-dark: #059669; --secondary: #3b82f6;
+            --bg-light: #f8f9fa; --surface: #ffffff; --text-dark: #1a1a2e;
+            --text-light: #666666; --border: #e0e0e0; --shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        html { font-family: 'Segoe UI', sans-serif; font-size: 16px; background: var(--bg-light); color: var(--text-dark); }
+        body { background: linear-gradient(135deg, #10b981 0%, #059669 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        header { text-align: center; color: white; margin-bottom: 40px; }
+        header h1 { font-size: 2.5rem; margin-bottom: 8px; }
+        header p { font-size: 1.1rem; opacity: 0.95; }
+        .upload-section { background: var(--surface); padding: 40px; margin-bottom: 30px; border: 2px dashed var(--primary); border-radius: 16px; text-align: center; cursor: pointer; transition: all 0.3s; }
+        .upload-section:hover { border-color: var(--primary-dark); background: rgba(16, 185, 129, 0.02); }
+        .upload-section.drag-over { border-color: var(--primary-dark); background: rgba(16, 185, 129, 0.1); transform: scale(1.02); }
+        .upload-icon { font-size: 3rem; margin-bottom: 16px; }
+        .upload-section h2 { font-size: 1.5rem; margin-bottom: 12px; color: var(--primary); }
+        .upload-section p { color: var(--text-light); margin-bottom: 24px; }
+        input[type="file"] { display: none; }
+        .btn { display: inline-block; padding: 12px 32px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s; margin-right: 12px; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); transform: translateY(-2px); }
+        .btn-secondary { background: var(--secondary); color: white; }
+        .btn-secondary:hover { background: #2563eb; }
+        .btn-success { background: #10b981; color: white; }
+        .btn-success:hover { background: #059669; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .file-input-label { display: inline-block; padding: 12px 32px; background: var(--primary); color: white; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s; }
+        .file-input-label:hover { background: var(--primary-dark); }
+        
+        .preview-section { background: var(--surface); padding: 30px; border-radius: 16px; margin-bottom: 30px; box-shadow: var(--shadow); display: none; }
+        .preview-section.show { display: block; }
+        .preview-section h3 { color: var(--primary); margin-bottom: 20px; }
+        
+        .table-wrapper { overflow-x: auto; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th { background: var(--secondary); color: white; padding: 12px; text-align: left; font-weight: 600; }
+        td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+        tr:hover { background: rgba(16, 185, 129, 0.05); }
+        
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .stat-card { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: white; padding: 20px; border-radius: 12px; text-align: center; }
+        .stat-card h4 { font-size: 2rem; margin: 10px 0; }
+        .stat-card p { font-size: 0.9rem; opacity: 0.9; }
+        
+        .export-buttons { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+        .export-buttons .btn { margin: 0; }
+        
+        .loading { display: none; text-align: center; color: var(--primary); font-weight: 600; margin: 20px 0; }
+        .loading.show { display: block; }
+        
+        .success-message { display: none; background: #d1fae5; color: #065f46; padding: 16px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid var(--primary); }
+        .success-message.show { display: block; }
+        
+        .error-message { display: none; background: #fee2e2; color: #991b1b; padding: 16px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #dc2626; }
+        .error-message.show { display: block; }
+        
+        .mapping-info { background: #eff6ff; padding: 16px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid var(--secondary); color: var(--text-dark); }
+        .mapping-info h4 { color: var(--secondary); margin-bottom: 12px; }
+        .mapping-info ul { margin-left: 20px; }
+        .mapping-info li { margin: 6px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Price Formatter Pro</h1>
+            <p>Преобразуй сырой прайс в готовый формат для Price List Viewer Pro</p>
+        </header>
+        
+        <div class="mapping-info">
+            <h4>📋 Как работает форматирование:</h4>
+            <ul>
+                <li><strong>Группа3</strong> → <strong>Группа</strong></li>
+                <li><strong>Part#</strong> → <strong>Артикул</strong></li>
+                <li><strong>Вендор</strong> → <strong>Бренд</strong></li>
+                <li><strong>Наименование</strong> → <strong>Модель</strong></li>
+                <li><strong>Цена</strong> → <strong>Цена</strong></li>
+                <li>Остальные столбцы автоматически удаляются</li>
+            </ul>
+        </div>
+        
+        <div class="upload-section" id="uploadSection" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+            <div class="upload-icon">📁</div>
+            <h2>Загрузи свой Excel файл</h2>
+            <p>Перетащи файл сюда или кликни для выбора</p>
+            <label class="file-input-label" for="fileInput">Выбрать файл</label>
+            <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="handleFileSelect(event)">
+        </div>
+        
+        <div class="error-message" id="errorMsg"></div>
+        <div class="success-message" id="successMsg"></div>
+        <div class="loading" id="loading">⏳ Обработка файла...</div>
+        
+        <div class="preview-section" id="previewSection">
+            <h3>✅ Предпросмотр очищенных данных</h3>
+            
+            <div class="stats" id="stats"></div>
+            
+            <div class="table-wrapper">
+                <table id="previewTable">
+                    <thead>
+                        <tr>
+                            <th>Группа</th>
+                            <th>Артикул</th>
+                            <th>Бренд</th>
+                            <th>Модель</th>
+                            <th>Цена</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+            
+            <div class="export-buttons">
+                <button class="btn btn-success" onclick="exportJSON()">📥 Скачать JSON</button>
+                <button class="btn btn-secondary" onclick="exportCSV()">📥 Скачать CSV</button>
+                <button class="btn btn-primary" onclick="copyJSON()">📋 Копировать JSON</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script>
+        let processedData = [];
+        let xlsxReady = false;
+        
+        // Проверяю загрузку XLSX
+        function checkXLSX() {
+            if (typeof XLSX !== 'undefined') {
+                xlsxReady = true;
+            } else {
+                setTimeout(checkXLSX, 100);
+            }
+        }
+        checkXLSX();
+        
+        function showError(msg) {
+            const errorEl = document.getElementById('errorMsg');
+            errorEl.textContent = msg;
+            errorEl.classList.add('show');
+            setTimeout(() => errorEl.classList.remove('show'), 5000);
+        }
+        
+        function showSuccess(msg) {
+            const successEl = document.getElementById('successMsg');
+            successEl.textContent = msg;
+            successEl.classList.add('show');
+            setTimeout(() => successEl.classList.remove('show'), 5000);
+        }
+        
+        function handleDragOver(e) {
+            e.preventDefault();
+            document.getElementById('uploadSection').classList.add('drag-over');
+        }
+        
+        function handleDragLeave(e) {
+            document.getElementById('uploadSection').classList.remove('drag-over');
+        }
+        
+        function handleDrop(e) {
+            e.preventDefault();
+            document.getElementById('uploadSection').classList.remove('drag-over');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                processFile(files[0]);
+            }
+        }
+        
+        function handleFileSelect(e) {
+            if (e.target.files.length > 0) {
+                processFile(e.target.files[0]);
+                // Сбрасываю после обработки для возможности выбрать тот же файл снова
+                setTimeout(() => {
+                    e.target.value = '';
+                }, 100);
+            }
+        }
+        
+        function processFile(file) {
+            if (!xlsxReady) {
+                showError('⏳ Библиотека XLSX еще загружается, попробуй через секунду');
+                return;
+            }
+            
+            const loading = document.getElementById('loading');
+            loading.classList.add('show');
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                    
+                    // Читаю ВСЕ данные без фильтра по строкам
+                    const allData = XLSX.utils.sheet_to_json(worksheet, {defval: ''});
+                    
+                    // Фильтрую - оставляю только строки с Part# (это реальные товары)
+                    let filtered = allData.filter(row => {
+                        const partNum = row['Part#'];
+                        return partNum && String(partNum).trim() !== '' && !isNaN(partNum) || (typeof partNum === 'string' && partNum.trim() !== '');
+                    });
+                    
+                    // Маппинг столбцов
+                    processedData = filtered.map(row => ({
+                        'Группа': String(row['Группа3'] || '').trim(),
+                        'Артикул': String(row['Part#'] || '').trim(),
+                        'Бренд': String(row['Вендор'] || '').trim(),
+                        'Модель': String(row['Наименование'] || '').trim(),
+                        'Цена': parseFloat(String(row['Цена'] || '0').replace(/[^\d.-]/g, '')) || 0
+                    })).filter(row => row['Цена'] > 0 && row['Артикул'] !== ''); // Удаляю без цены и артикула
+                    
+                    displayPreview();
+                    loading.classList.remove('show');
+                    showSuccess(`✅ Успешно обработано ${processedData.length} товаров!`);
+                    
+                } catch (error) {
+                    loading.classList.remove('show');
+                    showError('❌ Ошибка при обработке файла: ' + error.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+        
+        function displayPreview() {
+            const preview = document.getElementById('previewSection');
+            preview.classList.add('show');
+            
+            // Изменяю текст в upload-section на возможность загрузить новый файл
+            document.querySelector('.upload-section h2').textContent = '📁 Загрузи новый файл или прайс';
+            
+            // Статистика
+            const statsHtml = `
+                <div class="stat-card">
+                    <p>Товаров</p>
+                    <h4>${processedData.length}</h4>
+                </div>
+                <div class="stat-card">
+                    <p>Среднюю цена</p>
+                    <h4>${(processedData.reduce((a, b) => a + b['Цена'], 0) / processedData.length).toFixed(2)}₽</h4>
+                </div>
+                <div class="stat-card">
+                    <p>Макс цена</p>
+                    <h4>${Math.max(...processedData.map(p => p['Цена'])).toLocaleString('ru-RU')}₽</h4>
+                </div>
+                <div class="stat-card">
+                    <p>Мин цена</p>
+                    <h4>${Math.min(...processedData.map(p => p['Цена'])).toLocaleString('ru-RU')}₽</h4>
+                </div>
+            `;
+            document.getElementById('stats').innerHTML = statsHtml;
+            
+            // Таблица (первые 10 товаров)
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+            processedData.slice(0, 10).forEach(item => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${item['Группа']}</td>
+                    <td><strong>${item['Артикул']}</strong></td>
+                    <td>${item['Бренд']}</td>
+                    <td>${item['Модель']}</td>
+                    <td>${item['Цена'].toLocaleString('ru-RU')}₽</td>
+                `;
+            });
+            
+            if (processedData.length > 10) {
+                const row = tbody.insertRow();
+                row.innerHTML = `<td colspan="5" style="text-align: center; font-weight: bold; color: var(--primary);">... и ещё ${processedData.length - 10} товаров</td>`;
+            }
+        }
+        
+        function getJSONData() {
+            return JSON.stringify({ products: processedData }, null, 2);
+        }
+        
+        function exportJSON() {
+            const jsonStr = getJSONData();
+            const blob = new Blob([jsonStr], {type: 'application/json'});
+            downloadFile(blob, 'priceList.json');
+            showSuccess('✅ JSON файл скачан!');
+        }
+        
+        function exportCSV() {
+            let csv = 'Группа,Артикул,Бренд,Модель,Цена\n';
+            processedData.forEach(item => {
+                csv += `"${item['Группа']}","${item['Артикул']}","${item['Бренд']}","${item['Модель']}",${item['Цена']}
+`;
+            });
+            const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+            downloadFile(blob, 'priceList.csv');
+            showSuccess('✅ CSV файл скачан!');
+        }
+        
+        function copyJSON() {
+            const jsonStr = getJSONData();
+            navigator.clipboard.writeText(jsonStr).then(() => {
+                showSuccess('📋 JSON скопирован в буфер обмена!');
+            }).catch(() => {
+                showError('❌ Ошибка при копировании в буфер обмена');
+            });
+        }
+        
+        // Альтернатива: селектировать текст в textarea для старых браузеров
+        function copyToClipboardOld(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        
+        function downloadFile(blob, filename) {
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
