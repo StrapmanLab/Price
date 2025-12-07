@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Price List Viewer Pro</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --primary: #00b4d8; --primary-dark: #0096c7; --secondary: #457b9d;
+            --danger: #e63946; --success: #2a9d8f; --warning: #f4a261;
+            --bg-light: #f8f9fa; --surface: #ffffff; --text-dark: #1a1a2e;
+            --text-light: #666666; --border: #e0e0e0; --shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        html { font-family: 'Segoe UI', sans-serif; font-size: 16px; background: var(--bg-light); color: var(--text-dark); }
+        body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1600px; margin: 0 auto; }
+        header { text-align: center; color: white; margin-bottom: 40px; }
+        header h1 { font-size: 2.5rem; margin-bottom: 8px; }
+        header p { font-size: 1.1rem; opacity: 0.95; }
+        .upload-section { background: var(--surface); padding: 40px; margin-bottom: 30px; border: 2px dashed var(--primary); border-radius: 16px; text-align: center; cursor: pointer; transition: all 0.3s; }
+        .upload-section:hover { border-color: var(--primary-dark); background: rgba(0, 180, 216, 0.02); }
+        .upload-section.drag-over { border-color: var(--primary-dark); background: rgba(0, 180, 216, 0.1); transform: scale(1.02); }
+        .upload-icon { font-size: 3rem; margin-bottom: 16px; }
+        .upload-section h2 { font-size: 1.5rem; margin-bottom: 12px; }
+        .upload-section p { color: var(--text-light); margin-bottom: 24px; }
+        input[type="file"] { display: none; }
+        .btn { display: inline-block; padding: 12px 32px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s; }
+        .btn-primary { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: white; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 16px rgba(0, 180, 216, 0.3); }
+        .btn-secondary { background: var(--secondary); color: white; padding: 8px 16px; font-size: 0.9rem; cursor: pointer; border: none; border-radius: 6px; transition: all 0.3s; white-space: nowrap; }
+        .btn-secondary:hover { background: var(--secondary); opacity: 0.8; }
+        .btn-success { background: var(--success); color: white; padding: 10px 20px; font-size: 0.9rem; border: none; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+        .btn-success:hover { opacity: 0.9; }
+        .message { padding: 16px; margin: 20px 0; border-radius: 8px; display: none; border-left: 4px solid; }
+        .message.show { display: block; }
+        .message.success { background: rgba(42, 157, 143, 0.15); color: var(--success); border-color: var(--success); }
+        .message.error { background: rgba(230, 57, 70, 0.15); color: var(--danger); border-color: var(--danger); }
+        .loading { display: none; text-align: center; padding: 40px; }
+        .loading.show { display: block; }
+        .spinner { display: inline-block; width: 50px; height: 50px; border: 4px solid var(--border); border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .results { display: none; }
+        .results.show { display: block; }
+        .file-info { background: var(--surface); padding: 20px; margin: 20px 0; border-radius: 12px; box-shadow: var(--shadow); border-left: 5px solid var(--primary); display: none; }
+        .file-info.show { display: block; animation: slideDown 0.3s ease-out; }
+        .file-info p { margin: 8px 0; font-size: 0.95rem; }
+        .file-info strong { color: var(--primary); }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 25px; }
+        .stat-card { background: var(--surface); padding: 20px; border-radius: 12px; box-shadow: var(--shadow); border-left: 5px solid var(--primary); }
+        .stat-value { font-size: 2rem; font-weight: 700; margin-bottom: 5px; color: var(--primary); }
+        .stat-label { font-size: 0.9rem; color: var(--text-light); }
+
+        .controls { background: var(--surface); padding: 20px; border-radius: 12px; box-shadow: var(--shadow); margin-bottom: 25px; }
+        .control-group { margin-bottom: 15px; }
+        .control-group label { display: block; font-weight: 600; margin-bottom: 10px; font-size: 0.95rem; }
+
+        .filter-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+        .filter-tag { background: linear-gradient(135deg, rgba(0, 180, 216, 0.1) 0%, rgba(69, 123, 157, 0.1) 100%); border: 2px solid var(--primary); color: var(--primary); padding: 6px 14px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: all 0.2s; position: relative; }
+        .filter-tag:hover { background: linear-gradient(135deg, rgba(0, 180, 216, 0.2) 0%, rgba(69, 123, 157, 0.2) 100%); }
+        .filter-tag.active { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: white; border-color: var(--primary-dark); box-shadow: 0 4px 12px rgba(0, 180, 216, 0.4), inset 0 0 0 1px rgba(255,255,255,0.3); }
+        .filter-tag.all-brands { margin-right: 10px; }
+
+        .selected-filters { display: none; background: linear-gradient(135deg, rgba(0, 180, 216, 0.1) 0%, rgba(69, 123, 157, 0.1) 100%); border-left: 4px solid var(--primary); padding: 12px 16px; border-radius: 6px; margin: 15px 0; }
+        .selected-filters.show { display: block; }
+        .selected-filters strong { color: var(--primary); }
+        .selected-items { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+        .selected-item { display: inline-flex; align-items: center; gap: 6px; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.85rem; }
+        .selected-item-remove { cursor: pointer; opacity: 0.7; }
+        .selected-item-remove:hover { opacity: 1; }
+
+        .table-section { background: var(--surface); border-radius: 12px; padding: 20px; box-shadow: var(--shadow); margin-bottom: 20px; }
+        .table-header { display: flex; justify-content: flex-start; align-items: center; gap: 15px; margin-bottom: 15px; flex-wrap: nowrap; }
+        .table-header h3 { font-size: 1.1rem; color: var(--text-dark); white-space: nowrap; flex-shrink: 0; }
+        .table-header-search { flex: 0 0 300px; }
+        .search-input { width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; }
+        .search-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0, 180, 216, 0.1); }
+        .action-buttons { display: flex; gap: 8px; flex-wrap: nowrap; margin-left: auto; }
+
+        .table-wrapper { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+        thead { background: linear-gradient(135deg, var(--bg-light) 0%, #f0f0f0 100%); }
+        th { padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid var(--border); cursor: pointer; user-select: none; white-space: nowrap; }
+        th:hover { background: rgba(0, 180, 216, 0.1); }
+        th.active { background: rgba(0, 180, 216, 0.15); color: var(--primary); }
+        td { padding: 12px; border-bottom: 1px solid var(--border); }
+        td:last-child { white-space: nowrap; }
+        tbody tr:hover { background: rgba(0, 180, 216, 0.05); }
+
+        .search-icon { color: var(--primary); cursor: pointer; transition: all 0.2s; }
+        .search-icon:hover { opacity: 0.7; transform: scale(1.2); }
+
+        .checkbox-cell { text-align: center; }
+        input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary); }
+
+        .group-header { background: linear-gradient(135deg, rgba(0, 180, 216, 0.08) 0%, rgba(69, 123, 157, 0.08) 100%); padding: 12px; font-weight: 700; color: var(--primary); border-left: 4px solid var(--primary); }
+
+        .selection-summary { background: linear-gradient(135deg, rgba(0, 180, 216, 0.05) 0%, rgba(69, 123, 157, 0.05) 100%); border: 1px solid var(--border); padding: 15px; border-radius: 8px; margin-bottom: 15px; display: none; }
+        .selection-summary.show { display: block; }
+        .selection-summary p { margin: 5px 0; font-size: 0.95rem; }
+
+        .price-formula {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            padding: 20px; border-radius: 12px; margin-bottom: 20px; color: white;
+        }
+        .price-formula h3 { margin: 0 0 16px 0; font-size: 1.1rem; }
+        .formula-controls { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+        .formula-input { flex: 1; min-width: 180px; }
+        .formula-input label { display: block; font-size: 0.9rem; margin-bottom: 6px; opacity: 0.9; }
+        .formula-input input { width: 100%; padding: 10px; border: none; border-radius: 6px; font-size: 1rem; }
+        .formula-buttons { display: flex; gap: 10px; }
+        .formula-buttons button { padding: 10px 16px; border: 2px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: white; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.3s; }
+        .formula-buttons button:hover { background: rgba(255,255,255,0.2); }
+        .no-data {        .no-data { text-align: center; padding: 60px 20px; color: var(--text-light); }
+
+        @media (max-width: 1200px) { 
+            .table-header { flex-wrap: wrap; justify-content: flex-start; } 
+            .table-header h3 { flex: 0 0 auto; }
+            .table-header-search { flex: 1 1 250px; min-width: 200px; } 
+            .action-buttons { flex: 0 1 auto; margin-left: 0; } 
+        }
+        @media (max-width: 768px) { 
+            header h1 { font-size: 1.8rem; } 
+            .stats-grid { grid-template-columns: 1fr; } 
+            .filter-tags { gap: 5px; } 
+            .filter-tag { padding: 5px 10px; font-size: 0.8rem; } 
+            .table-header { flex-wrap: wrap; flex-direction: column; align-items: stretch; }
+            .table-header h3 { width: 100%; }
+            .table-header-search { width: 100%; flex: 1 1 auto; } 
+            .action-buttons { width: 100%; margin-left: 0; }
+            .btn-secondary, .btn-success { font-size: 0.85rem; padding: 8px 12px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📋 Price List Viewer Pro</h1>
+            <p>Удобный просмотр и управление прайс-листом</p>
+        </header>
+
+        <div class="upload-section" id="uploadSection" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+            <div class="upload-icon">📁</div>
+            <h2>Загрузи Excel файл с прайсом</h2>
+            <p>Перетащи файл сюда или нажми кнопку</p>
+            <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">Выбрать файл</button>
+            <input type="file" id="fileInput" accept=".xlsx,.xls,.json" onchange="handleFileSelect(event)">
+        </div>
+
+        <div style="background: var(--surface); padding: 20px; border-radius: 8px; margin-top: 20px; margin-bottom: 20px;">
+            <h3 style="color: var(--primary); margin-bottom: 12px;">🔧 Или вставь JSON</h3>
+            <textarea id="jsonInput" style="width: 100%; height: 180px; padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-family: monospace; font-size: 0.9rem; margin-bottom: 12px;" placeholder='{"products": []}'></textarea>
+            <button class="btn btn-primary" onclick="importJSONText()">Импортировать JSON</button>
+        </div>
+        <div id="message" class="message"></div>
+
+        <div id="fileInfo" class="file-info">
+            <p>📅 <strong>Прайс-лист:</strong> <span id="sheet-name"></span></p>
+            <p>📊 <strong>Источник:</strong> <span id="file-name"></span></p>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 20px; color: white;">Загружаю прайс...</p>
+        </div>
+
+        <div class="results" id="results">
+            <div class="stats-grid" id="stats"></div>
+
+            <div class="controls">
+                <div class="control-group">
+                    <label>🏷️ Фильтр по брендам:</label>
+                    <div class="filter-tags" id="brandFilters"></div>
+                </div>
+
+                <div class="control-group">
+                    <label>📦 Фильтр по группам:</label>
+                    <div class="filter-tags" id="groupFilters"></div>
+                </div>
+
+                <div id="selectedFilters" class="selected-filters">
+                    <div><strong>✅ Выбранные фильтры:</strong></div>
+                    <div class="selected-items" id="selectedItemsList"></div>
+                </div>
+            </div>
+
+            <div id="selectionSummary" class="selection-summary">
+                <p>✅ <strong id="selectedCount">0</strong> позиций выбрано</p>
+                <p>💰 <strong id="selectedSum">0</strong> ₽ — сумма выбранных товаров</p>
+            </div>
+
+            <div class="table-section">
+                <div class="table-header">
+                    <h3>📊 Прайс-лист</h3>
+                    <div class="table-header-search">
+                        <input type="text" id="search" class="search-input" placeholder="🔍 Поиск..." onkeyup="filterTable()">
+                    </div>
+                    <div class="action-buttons">
+                        <button class="btn btn-secondary" onclick="selectAll()">✓ Все</button>
+                        <button class="btn btn-secondary" onclick="clearAll()">✗ Очистить</button>
+                        <button class="btn btn-success" onclick="exportSelected()">📥 CSV</button>
+                    </div>
+                </div>
+                <!-- Панель калькулятора цены -->
+                <div style="background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); padding: 16px; border-radius: 8px; margin-bottom: 16px; color: white;">
+                    <h3 style="margin: 0 0 12px 0; font-size: 1rem;">💰 Изменить цену на:</h3>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end;">
+                        <div style="flex: 1; min-width: 150px;">
+                            <input type="number" id="pricePercent" placeholder="+10 или -15" value="0" style="width: 100%; padding: 8px; border: none; border-radius: 4px; font-size: 0.95rem;">
+                        </div>
+                        <button onclick="applyPriceFormula()" style="padding: 8px 14px; background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; cursor: pointer; font-weight: 600; transition: 0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">✅ Применить</button>
+                        <button onclick="resetPriceFormula()" style="padding: 8px 14px; background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; cursor: pointer; font-weight: 600; transition: 0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">↻ Сбросить</button>
+                    </div>
+                </div>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead id="tableHead"></thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script>
+        let allData = [];
+        let filteredData = [];
+        let originalPrices = {};
+        let sortState = { field: null, asc: true };
+        let brands = new Set();
+        let groups = new Set();
+        let brandCounts = {};
+        let groupCounts = {};
+        let activeFilters = { brands: new Set(), groups: new Set() };
+
+        function roundToTens(price) {
+            return Math.round(price / 10) * 10;
+        }
+        function applyPriceFormula() {
+            const percent = parseFloat(document.getElementById('pricePercent').value) || 0;
+            if (percent === 0) { msg('⚠️ Введи процент', 'error'); return; }
+            allData.forEach(item => {
+                const orig = originalPrices[item.id] || item.price;
+                item.price = roundToTens(orig * (1 + percent / 100));
+            });
+            filteredData = JSON.parse(JSON.stringify(allData));
+            renderTable();
+            msg(`✅ Цена изменена на ${percent > 0 ? '+' : ''}${percent}%`, 'success');
+        }
+        function resetPriceFormula() {
+            allData.forEach(item => {
+                if (originalPrices[item.id]) item.price = originalPrices[item.id];
+            });
+            document.getElementById('pricePercent').value = '0';
+            filteredData = JSON.parse(JSON.stringify(allData));
+            renderTable();
+            msg('↻ Цены восстановлены', 'success');
+        }
+        function loadJSONProducts(products) {
+            try {
+                document.getElementById('loading').classList.add('show');
+                allData = [];
+                originalPrices = {};
+                let id = 0;
+
+                products.forEach(p => {
+                    const art = String(p['Артикул'] || p.sku || p['Part#'] || '').trim();
+                    const price = parseFloat(p['Цена'] || p.price || 0);
+                    if (!art || price <= 0) return;
+
+                    const roundedPrice = roundToTens(price);
+                    allData.push({
+                        id: id,
+                        art: art,
+                        brand: String(p['Бренд'] || p.brand || '').trim(),
+                        model: String(p['Модель'] || p.name || '').trim(),
+                        group: (String(p['Группа'] || p.group || '') || 'Без группы').trim(),
+                        price: roundedPrice,
+                        selected: false,
+                        rawData: p
+                    });
+                    originalPrices[id] = roundedPrice;
+                    id++;
+                });
+
+                if (allData.length === 0) {
+                    document.getElementById('loading').classList.remove('show');
+                    msg('⚠️ Нет данных', 'error');
+                    return;
+                }
+
+                brandCounts = {}; groupCounts = {};
+                brands.clear(); groups.clear();
+                allData.forEach(item => {
+                    if (item.brand) { brands.add(item.brand); brandCounts[item.brand] = (brandCounts[item.brand] || 0) + 1; }
+                    if (item.group) { groups.add(item.group); groupCounts[item.group] = (groupCounts[item.group] || 0) + 1; }
+                });
+
+                filteredData = JSON.parse(JSON.stringify(allData));
+                render();
+                document.getElementById('loading').classList.remove('show');
+                msg('✅ JSON загружен: ' + allData.length + ' товаров', 'success');
+            } catch (error) {
+                document.getElementById('loading').classList.remove('show');
+                msg('❌ Ошибка: ' + error.message, 'error');
+            }
+        }
+        function importJSONText() {
+            try {
+                const jsonText = document.getElementById('jsonInput').value.trim();
+                if (!jsonText) { msg('⚠️ Вставь JSON', 'error'); return; }
+                const json = JSON.parse(jsonText);
+                const products = json.products || json || [];
+                loadJSONProducts(products);
+                document.getElementById('jsonInput').value = '';
+            } catch (error) {
+                msg('❌ Ошибка: ' + error.message, 'error');
+            }
+        }
+        function msg(text, type) {
+            const el = document.getElementById('message');
+            el.textContent = text;
+            el.className = 'message show ' + type;
+            setTimeout(() => el.className = 'message', 5000);
+        }
+
+        function searchGoogle(brand, model, art) {
+            if (!brand && !model && !art) {
+                console.log('Нет данных для поиска');
+                return;
+            }
+            const parts = [];
+            if (brand && brand.trim()) parts.push(brand.trim());
+            if (model && model.trim()) parts.push(model.trim());
+            if (art && art.trim()) parts.push(art.trim());
+
+            const query = encodeURIComponent(parts.join(' '));
+            if (query.length > 0) {
+                window.open('https://www.google.com/search?q=' + query, '_blank');
+            }
+        }
+
+        function handleDragOver(e) { e.preventDefault(); document.getElementById('uploadSection').classList.add('drag-over'); }
+        function handleDragLeave(e) { document.getElementById('uploadSection').classList.remove('drag-over'); }
+        function handleDrop(e) { e.preventDefault(); document.getElementById('uploadSection').classList.remove('drag-over'); if (e.dataTransfer.files.length) processFile(e.dataTransfer.files[0]); }
+        function handleFileSelect(e) { if (e.target.files.length) processFile(e.target.files[0]); }
+
+        function processFile(file) {
+            if (file.name.endsWith('.json')) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const json = JSON.parse(e.target.result);
+                        const products = json.products || json || [];
+                        loadJSONProducts(products);
+                    } catch (error) {
+                        msg('❌ Ошибка JSON: ' + error.message, 'error');
+                    }
+                };
+                reader.readAsText(file);
+                return;
+            }
+            if (!file.name.match(/\.xlsx?$/i)) { msg('❌ Загрузи Excel файл', 'error'); return; }
+            document.getElementById('loading').classList.add('show');
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    if (typeof XLSX === 'undefined') throw new Error('XLSX не загрузилась');
+                    const wb = XLSX.read(e.target.result, { type: 'array' });
+                    if (wb.SheetNames.length === 0) throw new Error('Файл пуст');
+
+                    const lastSheetName = wb.SheetNames[wb.SheetNames.length - 1];
+                    const data = XLSX.utils.sheet_to_json(wb.Sheets[lastSheetName]);
+
+                    if (!data.length) throw new Error('Лист пуст');
+
+                    document.getElementById('sheet-name').textContent = lastSheetName;
+                    document.getElementById('file-name').textContent = file.name;
+                    document.getElementById('fileInfo').classList.add('show');
+
+                    loadData(data);
+                    msg(`✅ Загружено! ${allData.length} позиций`, 'success');
+                    render();
+                } catch (err) {
+                    msg('❌ Ошибка: ' + err.message, 'error');
+                } finally {
+                    document.getElementById('loading').classList.remove('show');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function loadData(rawData) {
+            const keys = Object.keys(rawData[0] || {});
+            const artKey = keys.find(k => k.toLowerCase().includes('артикул')) || keys[0];
+            const priceKey = keys.find(k => k.toLowerCase().includes('цена')) || keys[keys.length - 1];
+            const brandKey = keys.find(k => k.toLowerCase().includes('бренд')) || '';
+            const modelKey = keys.find(k => k.toLowerCase().includes('модель')) || '';
+            const groupKey = keys.find(k => k.toLowerCase().includes('групп') || k.toLowerCase().includes('категор') || k.toLowerCase().includes('раздел')) || '';
+
+            allData = [];
+
+            rawData.forEach((r, idx) => {
+                const art = (r[artKey] || '').toString().trim();
+                const price = parseFloat(r[priceKey]) || 0;
+                const brand = (brandKey ? (r[brandKey] || '').toString().trim() : '').trim();
+                const model = (modelKey ? (r[modelKey] || '').toString().trim() : '').trim();
+                const group = (groupKey ? (r[groupKey] || '').toString().trim() : 'Без группы').trim();
+
+                if (!art || price <= 0) return;
+
+                const itemId = allData.length;
+                const roundedPrice = roundToTens(price);
+                allData.push({
+                    id: itemId,
+                    art: art,
+                    brand: brand,
+                    model: model,
+                    group: group,
+                    price: roundedPrice,
+                    selected: false,
+                    rawData: r
+                });
+                originalPrices[itemId] = roundedPrice;
+            });
+
+            brandCounts = {};
+            groupCounts = {};
+
+            allData.forEach(item => {
+                if (item.brand) {
+                    brands.add(item.brand);
+                    brandCounts[item.brand] = (brandCounts[item.brand] || 0) + 1;
+                }
+                if (item.group) {
+                    groups.add(item.group);
+                    groupCounts[item.group] = (groupCounts[item.group] || 0) + 1;
+                }
+            });
+
+            filteredData = JSON.parse(JSON.stringify(allData));
+        }
+
+        function render() {
+            renderStats();
+            renderFilters();
+            renderTable();
+            updateSelectedFiltersDisplay();
+            document.getElementById('results').classList.add('show');
+        }
+
+        function renderStats() {
+            let statsHTML = `
+                <div class="stat-card"><div class="stat-value">${allData.length}</div><div class="stat-label">Всего позиций</div></div>
+                <div class="stat-card"><div class="stat-value">${brands.size}</div><div class="stat-label">Брендов</div></div>
+                <div class="stat-card"><div class="stat-value">${groups.size}</div><div class="stat-label">Групп товаров</div></div>
+            `;
+
+            let totalSum = allData.reduce((s, i) => s + i.price, 0);
+            statsHTML += `<div class="stat-card"><div class="stat-value">${(totalSum / 1000000).toFixed(1)}M</div><div class="stat-label">Сумма всех позиций (₽)</div></div>`;
+
+            document.getElementById('stats').innerHTML = statsHTML;
+        }
+
+        function renderFilters() {
+            let brandHTML = '<button class="filter-tag all-brands" onclick="clearBrandFilter()">Все бренды</button>';
+            [...brands].sort().forEach(brand => {
+                const isActive = activeFilters.brands.has(brand);
+                const count = brandCounts[brand] || 0;
+                brandHTML += `<button class="filter-tag ${isActive ? 'active' : ''}" onclick="toggleFilter('brand', '${brand.replace(/'/g, "\'")}')">${brand} (${count})</button>`;
+            });
+            document.getElementById('brandFilters').innerHTML = brandHTML;
+
+            let groupHTML = '<button class="filter-tag all-brands" onclick="clearGroupFilter()">Все группы</button>';
+            [...groups].sort().forEach(group => {
+                const isActive = activeFilters.groups.has(group);
+                const count = groupCounts[group] || 0;
+                groupHTML += `<button class="filter-tag ${isActive ? 'active' : ''}" onclick="toggleFilter('group', '${group.replace(/'/g, "\'")}')">${group} (${count})</button>`;
+            });
+            document.getElementById('groupFilters').innerHTML = groupHTML;
+        }
+
+        function toggleFilter(type, value) {
+            const set = type === 'brand' ? activeFilters.brands : activeFilters.groups;
+            if (set.has(value)) {
+                set.delete(value);
+            } else {
+                set.add(value);
+            }
+            filterTable();
+            updateSelectedFiltersDisplay();
+        }
+
+        function clearBrandFilter() { activeFilters.brands.clear(); filterTable(); updateSelectedFiltersDisplay(); }
+        function clearGroupFilter() { activeFilters.groups.clear(); filterTable(); updateSelectedFiltersDisplay(); }
+
+        function updateSelectedFiltersDisplay() {
+            const container = document.getElementById('selectedFilters');
+            const itemsList = document.getElementById('selectedItemsList');
+
+            let html = '';
+
+            activeFilters.brands.forEach(brand => {
+                html += `<div class="selected-item">🏷️ ${brand} <span class="selected-item-remove" onclick="toggleFilter('brand', '${brand.replace(/'/g, "\'")}')" title="Удалить">✕</span></div>`;
+            });
+
+            activeFilters.groups.forEach(group => {
+                html += `<div class="selected-item">📦 ${group} <span class="selected-item-remove" onclick="toggleFilter('group', '${group.replace(/'/g, "\'")}')" title="Удалить">✕</span></div>`;
+            });
+
+            if (html) {
+                itemsList.innerHTML = html;
+                container.classList.add('show');
+            } else {
+                container.classList.remove('show');
+            }
+        }
+
+        function filterTable() {
+            const search = document.getElementById('search').value.toLowerCase();
+
+            filteredData = allData.filter(item => {
+                const matchSearch = !search || 
+                    item.art.toLowerCase().includes(search) ||
+                    item.brand.toLowerCase().includes(search) ||
+                    item.model.toLowerCase().includes(search);
+
+                const matchBrand = activeFilters.brands.size === 0 || activeFilters.brands.has(item.brand);
+                const matchGroup = activeFilters.groups.size === 0 || activeFilters.groups.has(item.group);
+
+                return matchSearch && matchBrand && matchGroup;
+            });
+
+            renderTable();
+        }
+
+        function renderTable() {
+            const thead = document.getElementById('tableHead');
+            const tbody = document.getElementById('tableBody');
+
+            const keys = ['Выбрать', 'Артикул', 'Бренд', 'Модель', 'Цена'];
+            thead.innerHTML = `<tr>${keys.map((k, i) => `<th onclick="sortTable(${i})">${k}</th>`).join('')}</tr>`;
+
+            if (!filteredData.length) {
+                tbody.innerHTML = '<tr><td colspan="5" class="no-data">Нет данных</td></tr>';
+                return;
+            }
+
+            let html = '';
+            let currentGroup = null;
+
+            filteredData.forEach(item => {
+                if (item.group !== currentGroup) {
+                    currentGroup = item.group;
+                    html += `<tr><td colspan="5" class="group-header">📦 ${currentGroup}</td></tr>`;
+                }
+
+                const searchIcon = `<span class="search-icon" onclick="searchGoogle('${item.brand.replace(/'/g, "\'")}', '${item.model.replace(/'/g, "\'")}', '${item.art.replace(/'/g, "\'")}')" title="Поиск в Google">🔍</span>`;
+
+                html += `<tr>
+                    <td class="checkbox-cell"><input type="checkbox" ${item.selected ? 'checked' : ''} onchange="toggleSelection(${item.id})"></td>
+                    <td>${item.art}</td>
+                    <td>${item.brand}</td>
+                    <td>${searchIcon} ${item.model}</td>
+                    <td style="text-align: right;"><strong>${item.price.toLocaleString('ru-RU')} ₽</strong></td>
+                </tr>`;
+            });
+
+            tbody.innerHTML = html;
+            updateSelectionSummary();
+        }
+
+        function sortTable(colIndex) {
+            const fields = [null, 'art', 'brand', 'model', 'price'];
+            const field = fields[colIndex];
+            if (!field) return;
+
+            if (sortState.field === field) {
+                sortState.asc = !sortState.asc;
+            } else {
+                sortState.field = field;
+                sortState.asc = true;
+            }
+
+            filteredData.sort((a, b) => {
+                let aVal = a[field];
+                let bVal = b[field];
+                if (typeof aVal === 'string') { aVal = aVal.toLowerCase(); bVal = bVal.toLowerCase(); }
+                let result = aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+                return sortState.asc ? result : -result;
+            });
+
+            renderTable();
+        }
+
+        function toggleSelection(id) {
+            const item = allData.find(i => i.id === id);
+            if (item) item.selected = !item.selected;
+            updateSelectionSummary();
+        }
+
+        function selectAll() {
+            filteredData.forEach(item => { allData.find(i => i.id === item.id).selected = true; });
+            renderTable();
+        }
+
+        function clearAll() {
+            filteredData.forEach(item => { allData.find(i => i.id === item.id).selected = false; });
+            renderTable();
+        }
+
+        function updateSelectionSummary() {
+            const selected = allData.filter(i => i.selected);
+            const summary = document.getElementById('selectionSummary');
+
+            if (selected.length > 0) {
+                const sum = selected.reduce((s, i) => s + i.price, 0);
+                document.getElementById('selectedCount').textContent = selected.length;
+                document.getElementById('selectedSum').textContent = sum.toLocaleString('ru-RU');
+                summary.classList.add('show');
+            } else {
+                summary.classList.remove('show');
+            }
+        }
+
+        function exportSelected() {
+            const selected = allData.filter(i => i.selected);
+            if (!selected.length) { alert('Нет выбранных позиций'); return; }
+
+            const headers = ['Артикул', 'Бренд', 'Модель', 'Цена'];
+            let csv = headers.join(',') + '\n';
+            csv += selected.map(i => ['"' + i.art + '"', '"' + i.brand + '"', '"' + i.model + '"', i.price].join(',')).join('\n');
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'pricesheet-' + new Date().toISOString().split('T')[0] + '.csv';
+            link.click();
+        }
+    </script>
+</body>
+</html>
