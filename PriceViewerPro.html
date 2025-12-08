@@ -328,7 +328,12 @@
             setTimeout(() => el.className = 'message', 5000);
         }
 
-        function searchGoogle(brand, model, art) {
+        function searchGoogle(element) {
+            // Если передана функция как arguments, то берем из data атрибутов
+            const brand = element.getAttribute('data-brand') || '';
+            const model = element.getAttribute('data-model') || '';
+            const art = element.getAttribute('data-art') || '';
+
             if (!brand && !model && !art) {
                 console.log('Нет данных для поиска');
                 return;
@@ -560,7 +565,7 @@
                     html += `<tr><td colspan="5" class="group-header">📦 ${currentGroup}</td></tr>`;
                 }
 
-                const searchIcon = `<span class="search-icon" onclick="searchGoogle('${item.brand.replace(/'/g, "\'")}', '${item.model.replace(/'/g, "\'")}', '${item.art.replace(/'/g, "\'")}')" title="Поиск в Google">🔍</span>`;
+                const searchIcon = `<span class="search-icon" onclick="searchGoogle(this)" data-brand="${item.brand}" data-model="${item.model}" data-art="${item.art}" title="Поиск в Google">🔍</span>`;
 
                 html += `<tr>
                     <td class="checkbox-cell"><input type="checkbox" ${item.selected ? 'checked' : ''} onchange="toggleSelection(${item.id})"></td>
