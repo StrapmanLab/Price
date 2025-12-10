@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Price Tracker Pro</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --primary: #00b4d8; --primary-dark: #0096c7; --secondary: #457b9d;
+            --danger: #e63946; --success: #2a9d8f; --bg-light: #f8f9fa;
+            --surface: #ffffff; --text-dark: #1a1a2e; --text-light: #666666;
+            --border: #e0e0e0; --shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        html { font-family: 'Segoe UI', sans-serif; font-size: 16px; background: var(--bg-light); color: var(--text-dark); }
+        body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        header { text-align: center; color: white; margin-bottom: 40px; }
+        header h1 { font-size: 2.5rem; margin-bottom: 8px; }
+        header p { font-size: 1.1rem; opacity: 0.95; }
+        .upload-section { background: var(--surface); padding: 40px; margin-bottom: 30px; border: 2px dashed var(--primary); border-radius: 16px; text-align: center; cursor: pointer; transition: all 0.3s; }
+        .upload-section:hover { border-color: var(--primary-dark); background: rgba(0, 180, 216, 0.02); }
+        .upload-section.drag-over { border-color: var(--primary-dark); background: rgba(0, 180, 216, 0.1); transform: scale(1.02); }
+        .upload-icon { font-size: 3rem; margin-bottom: 16px; }
+        .upload-section h2 { font-size: 1.5rem; margin-bottom: 12px; }
+        .upload-section p { color: var(--text-light); margin-bottom: 24px; }
+        input[type="file"] { display: none; }
+        .btn { display: inline-block; padding: 12px 32px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s; }
+        .btn-primary { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: white; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 16px rgba(0, 180, 216, 0.3); }
+        .btn-secondary { background: var(--secondary); color: white; padding: 8px 16px; font-size: 0.9rem; margin-bottom: 16px; }
+        .btn-tertiary { background: transparent; color: var(--primary); border: 2px solid var(--primary); padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s; }
+        .btn-tertiary:hover { background: rgba(0, 180, 216, 0.1); }
+        .message { padding: 16px; margin: 20px 0; border-radius: 8px; display: none; border-left: 4px solid; }
+        .message.show { display: block; }
+        .message.success { background: rgba(42, 157, 143, 0.15); color: var(--success); border-color: var(--success); }
+        .message.error { background: rgba(230, 57, 70, 0.15); color: var(--danger); border-color: var(--danger); }
+
+        /* Требования к формату */
+        .requirements { display: none; background: var(--surface); padding: 30px; margin: 20px 0; border-radius: 12px; box-shadow: var(--shadow); border-top: 4px solid var(--primary); }
+        .requirements.show { display: block; animation: slideDown 0.4s ease-out; }
+        .requirements h3 { margin-bottom: 20px; color: var(--text-dark); font-size: 1.3rem; }
+        .requirements-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 20px; }
+        .requirement-card { background: linear-gradient(135deg, rgba(0, 180, 216, 0.05) 0%, rgba(69, 123, 157, 0.05) 100%); padding: 20px; border-radius: 10px; border-left: 4px solid var(--primary); }
+        .requirement-card h4 { color: var(--primary); margin-bottom: 12px; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; }
+        .requirement-card p { color: var(--text-light); font-size: 0.95rem; line-height: 1.6; }
+        .column-example { background: var(--bg-light); padding: 12px; border-radius: 6px; margin: 12px 0; font-family: monospace; font-size: 0.9rem; border-left: 3px solid var(--primary); }
+        .column-required { color: var(--danger); font-weight: 600; }
+        .column-optional { color: var(--text-light); font-style: italic; }
+
+        /* Таблица форматов */
+        .format-table { width: 100%; margin-top: 20px; border-collapse: collapse; background: var(--bg-light); border-radius: 8px; overflow: hidden; }
+        .format-table th { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: white; padding: 14px; text-align: left; font-weight: 600; }
+        .format-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+        .format-table tbody tr:hover { background: rgba(0, 180, 216, 0.05); }
+        .format-table .col-num { text-align: center; width: 60px; font-weight: 600; color: var(--primary); }
+        .format-table .col-required { color: var(--danger); font-weight: 600; }
+        .format-table .col-optional { color: var(--text-light); }
+
+        .toggle-requirements { display: inline-block; margin-bottom: 20px; }
+        .requirements-summary { display: flex; gap: 30px; margin: 20px 0; flex-wrap: wrap; }
+        .summary-item { display: flex; align-items: center; gap: 10px; }
+        .summary-badge { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: white; font-weight: 700; }
+
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .file-info { background: var(--surface); padding: 20px; margin: 20px 0; border-radius: 12px; box-shadow: var(--shadow); border-left: 5px solid var(--primary); display: none; }
+        .file-info.show { display: block; animation: slideDown 0.3s ease-out; }
+        .file-info p { margin: 8px 0; font-size: 0.95rem; }
+        .file-info strong { color: var(--primary); }
+        .loading { display: none; text-align: center; padding: 40px; }
+        .loading.show { display: block; }
+        .spinner { display: inline-block; width: 50px; height: 50px; border: 4px solid var(--border); border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .results { display: none; }
+        .results.show { display: block; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .stat-card { background: var(--surface); padding: 24px; border-radius: 12px; box-shadow: var(--shadow); border-left: 5px solid var(--primary); }
+        .stat-card.danger { border-left-color: var(--danger); }
+        .stat-card.success { border-left-color: var(--success); }
+        .stat-value { font-size: 2.5rem; font-weight: 700; margin-bottom: 8px; color: var(--primary); }
+        .stat-card.danger .stat-value { color: var(--danger); }
+        .stat-card.success .stat-value { color: var(--success); }
+        .stat-label { font-size: 0.95rem; color: var(--text-light); }
+        .tabs { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+        .tab-btn { padding: 12px 24px; background: var(--surface); border: 2px solid var(--border); border-radius: 8px; cursor: pointer; font-weight: 600; color: var(--text-light); transition: all 0.3s; }
+        .tab-btn:hover { border-color: var(--primary); color: var(--primary); }
+        .tab-btn.active { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: white; border-color: transparent; }
+        .tab-content { display: none; background: var(--surface); border-radius: 12px; padding: 24px; box-shadow: var(--shadow); }
+        .tab-content.active { display: block; }
+        .search-box { margin-bottom: 20px; }
+        .search-box input { width: 100%; max-width: 400px; padding: 10px 16px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; }
+        .search-box input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0, 180, 216, 0.1); }
+        table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+        thead { background: linear-gradient(135deg, var(--bg-light) 0%, #f0f0f0 100%); }
+        th { padding: 14px 12px; text-align: left; font-weight: 600; border-bottom: 2px solid var(--border); cursor: pointer; user-select: none; transition: all 0.2s; }
+        th:hover { background: rgba(0, 180, 216, 0.1); }
+        th.active { background: rgba(0, 180, 216, 0.15); color: var(--primary); }
+        td { padding: 12px; border-bottom: 1px solid var(--border); }
+        tbody tr:hover { background: rgba(0, 180, 216, 0.05); }
+        .price-up { color: var(--danger); font-weight: 600; }
+        .price-down { color: var(--success); font-weight: 600; }
+        .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; margin-left: 8px; }
+        .badge-up { background: rgba(230, 57, 70, 0.15); color: var(--danger); }
+        .badge-down { background: rgba(42, 157, 143, 0.15); color: var(--success); }
+        .no-data { text-align: center; padding: 60px 20px; color: var(--text-light); }
+        .table-wrapper { overflow-x: auto; }
+        @media (max-width: 768px) { header h1 { font-size: 1.8rem; } .stats-grid { grid-template-columns: 1fr; } table { font-size: 0.85rem; } th, td { padding: 8px; } .requirements-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Price Tracker Pro</h1>
+            <p>Анализ изменений прайс-листов</p>
+        </header>
+
+        <div class="upload-section" id="uploadSection" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+            <div class="upload-icon">📁</div>
+            <h2>Загрузи Excel файл</h2>
+            <p>Перетащи файл сюда или нажми кнопку. Требуется 2 листа</p>
+            <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">Выбрать файл</button>
+            <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="handleFileSelect(event)">
+            <div style="margin-top: 20px;">
+                <button class="btn btn-tertiary" onclick="toggleRequirements()">ℹ️ Требования к формату</button>
+            </div>
+        </div>
+
+        <div id="requirements" class="requirements">
+            <h3>📋 Требования к формату Excel файла</h3>
+
+            <div class="requirements-summary">
+                <div class="summary-item">
+                    <div class="summary-badge">2</div>
+                    <span>Ровно 2 листа в файле</span>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-badge">📅</div>
+                    <span>Листы названы датами/периодами</span>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-badge">📊</div>
+                    <span>Одна строка = одна модель</span>
+                </div>
+            </div>
+
+            <h4 style="margin-top: 25px; margin-bottom: 15px; color: var(--text-dark);">Необходимые колонки:</h4>
+
+            <table class="format-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Колонка</th>
+                        <th>Тип</th>
+                        <th>Пример</th>
+                        <th>Примечание</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="col-num">1</td>
+                        <td><span class="col-required">Артикул</span></td>
+                        <td>Обязательна</td>
+                        <td>SKU-12345</td>
+                        <td>Уникальный идентификатор товара</td>
+                    </tr>
+                    <tr>
+                        <td class="col-num">2</td>
+                        <td><span class="col-optional">Бренд</span></td>
+                        <td>Опционально</td>
+                        <td>Samsung</td>
+                        <td>Название производителя</td>
+                    </tr>
+                    <tr>
+                        <td class="col-num">3</td>
+                        <td><span class="col-optional">Модель</span></td>
+                        <td>Опционально</td>
+                        <td>UE65AU7100</td>
+                        <td>Обозначение модели</td>
+                    </tr>
+                    <tr style="background: rgba(0, 180, 216, 0.08);">
+                        <td class="col-num">4+</td>
+                        <td><span class="col-required">Цена</span></td>
+                        <td>Обязательна</td>
+                        <td>45000</td>
+                        <td>Числовое значение, последняя колонка</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="requirements-grid">
+                <div class="requirement-card">
+                    <h4>✅ Правильно</h4>
+                    <div class="column-example">
+Артикул | Бренд | Модель | Цена
+SKU001  | LG    | 43UN | 28000
+SKU002  | Samsung| UE55| 35000
+                    </div>
+                </div>
+                <div class="requirement-card">
+                    <h4>❌ Неправильно</h4>
+                    <div class="column-example">
+SKU | Цена | Модель | Бренд
+(неправильный порядок)
+
+Цена001 | 28000
+(нет артикула)
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top: 20px; padding: 15px; background: rgba(42, 157, 143, 0.1); border-radius: 8px; border-left: 3px solid var(--success);">
+                <p><strong>💡 Подсказка:</strong> Приложение автоматически найдет нужные колонки по названиям, поэтому их порядок не критичен. Главное — они должны иметь узнаваемые названия.</p>
+            </div>
+        </div>
+
+        <div id="message" class="message"></div>
+
+        <div id="fileInfo" class="file-info">
+            <p>📅 <strong>Старый прайс:</strong> <span id="sheet1-name"></span></p>
+            <p>📅 <strong>Новый прайс:</strong> <span id="sheet2-name"></span></p>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 20px; color: white;">Анализирую данные...</p>
+        </div>
+
+        <div class="results" id="results">
+            <div class="stats-grid" id="stats"></div>
+            <div class="tabs" id="tabs"></div>
+
+            <div id="tab-changes" class="tab-content">
+                <div class="search-box">
+                    <input type="text" id="search-changes" placeholder="Поиск..." onkeyup="filterTable('changes')">
+                </div>
+                <button class="btn btn-secondary" onclick="exportCSV('changes')">📥 Экспорт CSV</button>
+                <div class="table-wrapper">
+                    <table><thead><tr><th onclick="sortTable('changes', 'art')">Артикул</th><th onclick="sortTable('changes', 'brand')">Бренд</th><th onclick="sortTable('changes', 'model')">Модель</th><th onclick="sortTable('changes', 'op')">Старая цена</th><th onclick="sortTable('changes', 'np')">Новая цена</th><th onclick="sortTable('changes', 'ch')">Сумма (₽)</th><th onclick="sortTable('changes', 'pct')">Процент (%)</th></tr></thead><tbody id="body-changes"></tbody></table>
+                </div>
+            </div>
+
+            <div id="tab-removed" class="tab-content">
+                <div class="search-box">
+                    <input type="text" id="search-removed" placeholder="Поиск..." onkeyup="filterTable('removed')">
+                </div>
+                <button class="btn btn-secondary" onclick="exportCSV('removed')">📥 Экспорт CSV</button>
+                <div class="table-wrapper">
+                    <table><thead><tr><th onclick="sortTable('removed', 'art')">Артикул</th><th onclick="sortTable('removed', 'brand')">Бренд</th><th onclick="sortTable('removed', 'model')">Модель</th><th onclick="sortTable('removed', 'p')">Цена</th></tr></thead><tbody id="body-removed"></tbody></table>
+                </div>
+            </div>
+
+            <div id="tab-new" class="tab-content">
+                <div class="search-box">
+                    <input type="text" id="search-new" placeholder="Поиск..." onkeyup="filterTable('new')">
+                </div>
+                <button class="btn btn-secondary" onclick="exportCSV('new')">📥 Экспорт CSV</button>
+                <div class="table-wrapper">
+                    <table><thead><tr><th onclick="sortTable('new', 'art')">Артикул</th><th onclick="sortTable('new', 'brand')">Бренд</th><th onclick="sortTable('new', 'model')">Модель</th><th onclick="sortTable('new', 'p')">Цена</th></tr></thead><tbody id="body-new"></tbody></table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script>
+        let data = { changes: [], removed: [], new: [] };
+        let originalData = { changes: [], removed: [], new: [] };
+        let sortState = { changes: {}, removed: {}, new: {} };
+        let sheet1Name = '';
+        let sheet2Name = '';
+
+        function toggleRequirements() {
+            document.getElementById('requirements').classList.toggle('show');
+        }
+
+        function msg(text, type) {
+            const el = document.getElementById('message');
+            el.textContent = text;
+            el.className = 'message show ' + type;
+            setTimeout(() => el.className = 'message', 5000);
+        }
+
+        function handleDragOver(e) { e.preventDefault(); document.getElementById('uploadSection').classList.add('drag-over'); }
+        function handleDragLeave(e) { document.getElementById('uploadSection').classList.remove('drag-over'); }
+        function handleDrop(e) { e.preventDefault(); document.getElementById('uploadSection').classList.remove('drag-over'); if (e.dataTransfer.files.length) processFile(e.dataTransfer.files[0]); }
+        function handleFileSelect(e) { if (e.target.files.length) processFile(e.target.files[0]); }
+
+        function processFile(file) {
+            if (!file.name.match(/\.xlsx?$/i)) { msg('❌ Загрузи Excel файл', 'error'); return; }
+            document.getElementById('loading').classList.add('show');
+            document.getElementById('fileInfo').classList.remove('show');
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    if (typeof XLSX === 'undefined') throw new Error('XLSX не загрузилась');
+                    const wb = XLSX.read(e.target.result, { type: 'array' });
+                    if (wb.SheetNames.length < 2) throw new Error('Нужно 2 листа');
+
+                    sheet1Name = wb.SheetNames[0];
+                    sheet2Name = wb.SheetNames[1];
+
+                    const s1 = XLSX.utils.sheet_to_json(wb.Sheets[sheet1Name]);
+                    const s2 = XLSX.utils.sheet_to_json(wb.Sheets[sheet2Name]);
+
+                    if (!s1.length || !s2.length) throw new Error('Листы пусты');
+
+                    analyze(s1, s2);
+
+                    document.getElementById('sheet1-name').textContent = sheet1Name;
+                    document.getElementById('sheet2-name').textContent = sheet2Name;
+                    document.getElementById('fileInfo').classList.add('show');
+
+                    msg(`✅ Загружено! Лист 1: ${s1.length}, Лист 2: ${s2.length}`, 'success');
+                    render();
+                } catch (err) {
+                    msg('❌ Ошибка: ' + err.message, 'error');
+                } finally {
+                    document.getElementById('loading').classList.remove('show');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function analyze(old, neu) {
+            const keys = Object.keys(old[0] || {});
+            const artKey = keys.find(k => k.toLowerCase().includes('артикул')) || keys[0];
+            const priceKey = keys.find(k => k.toLowerCase().includes('цена')) || keys[keys.length - 1];
+            const brandKey = keys.find(k => k.toLowerCase().includes('бренд')) || '';
+            const modelKey = keys.find(k => k.toLowerCase().includes('модель')) || '';
+
+            const oldMap = {}, neuMap = {};
+            old.forEach(r => { if (r[artKey]) oldMap[r[artKey]] = r; });
+            neu.forEach(r => { if (r[artKey]) neuMap[r[artKey]] = r; });
+
+            data = { changes: [], removed: [], new: [] };
+
+            Object.keys(oldMap).forEach(k => {
+                if (neuMap[k]) {
+                    const op = parseFloat(oldMap[k][priceKey]) || 0;
+                    const np = parseFloat(neuMap[k][priceKey]) || 0;
+                    if (op !== np) {
+                        data.changes.push({
+                            art: k,
+                            brand: brandKey ? oldMap[k][brandKey] : '',
+                            model: modelKey ? oldMap[k][modelKey] : '',
+                            op: op,
+                            np: np,
+                            ch: np - op,
+                            pct: parseFloat(((np - op) / op * 100).toFixed(1))
+                        });
+                    }
+                }
+            });
+
+            Object.keys(oldMap).forEach(k => {
+                if (!neuMap[k]) {
+                    data.removed.push({
+                        art: k,
+                        brand: brandKey ? oldMap[k][brandKey] : '',
+                        model: modelKey ? oldMap[k][modelKey] : '',
+                        p: parseFloat(oldMap[k][priceKey]) || 0
+                    });
+                }
+            });
+
+            Object.keys(neuMap).forEach(k => {
+                if (!oldMap[k]) {
+                    data.new.push({
+                        art: k,
+                        brand: brandKey ? neuMap[k][brandKey] : '',
+                        model: modelKey ? neuMap[k][modelKey] : '',
+                        p: parseFloat(neuMap[k][priceKey]) || 0
+                    });
+                }
+            });
+
+            originalData = JSON.parse(JSON.stringify(data));
+        }
+
+        function render() {
+            const up = data.changes.filter(x => x.ch > 0);
+            const down = data.changes.filter(x => x.ch < 0);
+            const avgUp = up.length ? (up.reduce((s, x) => s + x.pct, 0) / up.length).toFixed(1) : 0;
+            const avgDown = down.length ? (down.reduce((s, x) => s + x.pct, 0) / down.length).toFixed(1) : 0;
+
+            document.getElementById('stats').innerHTML = `
+                <div class="stat-card"><div class="stat-value">${data.changes.length}</div><div class="stat-label">Изменены</div></div>
+                <div class="stat-card danger"><div class="stat-value">${up.length}</div><div class="stat-label">Подорожали (+${avgUp}%)</div></div>
+                <div class="stat-card success"><div class="stat-value">${down.length}</div><div class="stat-label">Подешевели (${avgDown}%)</div></div>
+                <div class="stat-card danger"><div class="stat-value">${data.removed.length}</div><div class="stat-label">Удалены</div></div>
+                <div class="stat-card success"><div class="stat-value">${data.new.length}</div><div class="stat-label">Добавлены</div></div>
+            `;
+
+            document.getElementById('tabs').innerHTML = `
+                <button class="tab-btn active" onclick="switchTab('changes')">💰 Изменения (${data.changes.length})</button>
+                <button class="tab-btn" onclick="switchTab('removed')">❌ Удалены (${data.removed.length})</button>
+                <button class="tab-btn" onclick="switchTab('new')">✨ Новые (${data.new.length})</button>
+            `;
+
+            renderTable('changes');
+            renderTable('removed');
+            renderTable('new');
+            document.getElementById('results').classList.add('show');
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('tab-' + tab).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        function renderTable(type) {
+            const tbody = document.getElementById('body-' + type);
+            const items = data[type];
+
+            if (!items.length) {
+                tbody.innerHTML = '<tr><td colspan="10" class="no-data">Нет данных</td></tr>';
+                return;
+            }
+
+            if (type === 'changes') {
+                tbody.innerHTML = items.map(r => `<tr><td>${r.art}</td><td>${r.brand}</td><td>${r.model}</td><td>${r.op.toLocaleString('ru-RU')}</td><td>${r.np.toLocaleString('ru-RU')}</td><td><span class="${r.ch > 0 ? 'price-up' : 'price-down'}">${r.ch > 0 ? '+' : ''}${r.ch.toLocaleString('ru-RU')}</span></td><td><span class="badge ${r.ch > 0 ? 'badge-up' : 'badge-down'}">${r.pct > 0 ? '+' : ''}${r.pct}%</span></td></tr>`).join('');
+            } else if (type === 'removed') {
+                tbody.innerHTML = items.map(r => `<tr><td>${r.art}</td><td>${r.brand}</td><td>${r.model}</td><td>${r.p.toLocaleString('ru-RU')}</td></tr>`).join('');
+            } else {
+                tbody.innerHTML = items.map(r => `<tr><td>${r.art}</td><td>${r.brand}</td><td>${r.model}</td><td>${r.p.toLocaleString('ru-RU')}</td></tr>`).join('');
+            }
+        }
+
+        function sortTable(type, field) {
+            const sort = sortState[type] || {};
+            if (sort.field === field) {
+                sort.asc = !sort.asc;
+            } else {
+                sort.field = field;
+                sort.asc = true;
+            }
+            sortState[type] = sort;
+
+            data[type].sort((a, b) => {
+                let aVal = a[field];
+                let bVal = b[field];
+                if (typeof aVal === 'number') { aVal = aVal || 0; bVal = bVal || 0; } else if (typeof aVal === 'string') { aVal = aVal.toLowerCase(); bVal = bVal.toLowerCase(); }
+                let result = 0;
+                if (aVal > bVal) result = 1;
+                if (aVal < bVal) result = -1;
+                return sort.asc ? result : -result;
+            });
+
+            renderTable(type);
+
+            document.querySelectorAll('#tab-' + type + ' th').forEach((th, i) => {
+                th.classList.remove('active');
+                const thField = ['art', 'brand', 'model', type === 'changes' ? 'op' : 'p', type === 'changes' ? 'np' : null, type === 'changes' ? 'ch' : null, type === 'changes' ? 'pct' : null].filter(f => f)[i];
+                if (thField === field) th.classList.add('active');
+            });
+        }
+
+        function filterTable(type) {
+            const term = document.getElementById('search-' + type).value.toLowerCase();
+            data[type] = term ? originalData[type].filter(r => r.art.toLowerCase().includes(term) || r.brand.toLowerCase().includes(term) || r.model.toLowerCase().includes(term)) : JSON.parse(JSON.stringify(originalData[type]));
+            renderTable(type);
+        }
+
+        function exportCSV(type) {
+            const items = data[type];
+            if (!items.length) { alert('Нет данных'); return; }
+            const headers = type === 'changes' ? ['Артикул', 'Бренд', 'Модель', 'Старая', 'Новая', 'Сумма', '%'] : ['Артикул', 'Бренд', 'Модель', 'Цена'];
+            let csv = headers.join(',') + '\n';
+            csv += items.map(r => type === 'changes' ? [r.art, r.brand, r.model, r.op, r.np, r.ch, r.pct].join(',') : [r.art, r.brand, r.model, r.p].join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = type + '-' + new Date().toISOString().split('T')[0] + '.csv';
+            link.click();
+        }
+    </script>
+</body>
+</html>
